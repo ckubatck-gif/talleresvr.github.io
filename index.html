@@ -1,0 +1,825 @@
+import React, { useState, useMemo } from 'react';
+
+// --- MOCK DATA ---
+const initialWorkers = [
+  { id: 1, name: 'Juan Pérez', cost_hour: 15 },
+  { id: 2, name: 'Carlos López', cost_hour: 20 },
+];
+
+const initialClients = [
+  { id: 1, name: 'Empresa de Transportes S.A.', nif: 'B12345678', address: 'Calle Mayor 12, Madrid', phone: '600123456', email: 'contacto@trans.sa' },
+  { id: 2, name: 'María Gómez', nif: '71234567A', address: 'Avenida Libertad 4, Valencia', phone: '655987654', email: 'maria@gomez.com' },
+];
+
+const initialVehicles = [
+  { id: 1, client_id: 1, license_plate: '1234 ABC', brand: 'Ford', model: 'Transit', year: 2018 },
+  { id: 2, client_id: 2, license_plate: '5678 XYZ', brand: 'Toyota', model: 'Corolla', year: 2021 },
+];
+
+const initialOrders = [
+  { id: 1, vehicle_id: 1, status: 'Terminada', open_date: '2026-10-15', delivery_date: '2026-10-18', charged_price: 450 },
+  { id: 2, vehicle_id: 2, status: 'Abierta', open_date: '2026-10-20', delivery_date: null, charged_price: 0 },
+];
+
+const initialTasks = [
+  { id: 1, order_id: 1, description: 'Revisión general y cambio de aceite', worker_id: 1, hours: 2.5 },
+  { id: 2, order_id: 1, description: 'Alineación de dirección', worker_id: 2, hours: 1 },
+];
+
+const initialParts = [
+  { id: 1, order_id: 1, description: 'Lata Aceite 5W30', quantity: 1, unit_cost: 35 },
+  { id: 2, order_id: 1, description: 'Filtro de aceite', quantity: 1, unit_cost: 15 },
+];
+
+const initialInvoices = [];
+
+// --- ICONS (SVG) ---
+const IconDashboard = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>;
+const IconClipboard = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>;
+const IconUsers = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>;
+const IconWrench = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
+const IconChart = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>;
+const IconArrowLeft = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>;
+const IconPrinter = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>;
+const IconSave = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>;
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState('panel');
+  const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const [activeInvoice, setActiveInvoice] = useState(null);
+
+  // Global State
+  const [workers, setWorkers] = useState(initialWorkers);
+  const [clients, setClients] = useState(initialClients);
+  const [vehicles, setVehicles] = useState(initialVehicles);
+  const [orders, setOrders] = useState(initialOrders);
+  const [tasks, setTasks] = useState(initialTasks);
+  const [parts, setParts] = useState(initialParts);
+  const [invoices, setInvoices] = useState(initialInvoices);
+
+  // --- Core Calculations ---
+  const calculateOrderCost = (orderId) => {
+    const orderTasks = tasks.filter(t => t.order_id === orderId);
+    const orderParts = parts.filter(p => p.order_id === orderId);
+    
+    const taskCost = orderTasks.reduce((sum, task) => {
+      const worker = workers.find(w => w.id === task.worker_id);
+      return sum + (task.hours * (worker ? worker.cost_hour : 0));
+    }, 0);
+    
+    const partsCost = orderParts.reduce((sum, part) => sum + (part.quantity * part.unit_cost), 0);
+    return taskCost + partsCost;
+  };
+
+  const getFullOrderInfo = (order) => {
+    const vehicle = vehicles.find(v => v.id === order.vehicle_id);
+    const client = clients.find(c => c.id === vehicle?.client_id);
+    const cost = calculateOrderCost(order.id);
+    const profit = order.charged_price - cost;
+    return { ...order, vehicle, client, cost, profit };
+  };
+
+  // --- View Router ---
+  const renderContent = () => {
+    if (activeInvoice) {
+      return <InvoiceView 
+        invoice={activeInvoice} 
+        onClose={() => setActiveInvoice(null)} 
+        onSave={(updatedInvoice) => {
+          setInvoices(prev => {
+            const exists = prev.find(i => i.id === updatedInvoice.id);
+            if (exists) return prev.map(i => i.id === updatedInvoice.id ? updatedInvoice : i);
+            return [...prev, updatedInvoice];
+          });
+          setActiveInvoice(null);
+        }}
+      />;
+    }
+
+    if (selectedOrderId) {
+      return <OrderDetail 
+        orderId={selectedOrderId} 
+        onBack={() => setSelectedOrderId(null)} 
+        orders={orders} setOrders={setOrders}
+        vehicles={vehicles} clients={clients}
+        tasks={tasks} setTasks={setTasks}
+        parts={parts} setParts={setParts}
+        workers={workers}
+        invoices={invoices}
+        openInvoice={(inv) => setActiveInvoice(inv)}
+        calculateOrderCost={calculateOrderCost}
+      />;
+    }
+
+    switch (activeTab) {
+      case 'panel': return <Dashboard orders={orders} getFullOrderInfo={getFullOrderInfo} onSelectOrder={setSelectedOrderId} />;
+      case 'ordenes': return <OrdersView orders={orders} getFullOrderInfo={getFullOrderInfo} onSelectOrder={setSelectedOrderId} vehicles={vehicles} clients={clients} setOrders={setOrders} />;
+      case 'clientes': return <ClientsView clients={clients} vehicles={vehicles} />;
+      case 'trabajadores': return <WorkersView workers={workers} tasks={tasks} />;
+      case 'informes': return <ReportsView orders={orders} getFullOrderInfo={getFullOrderInfo} />;
+      default: return <Dashboard orders={orders} getFullOrderInfo={getFullOrderInfo} onSelectOrder={setSelectedOrderId} />;
+    }
+  };
+
+  // Hide the layout wrappers if we are showing an invoice so it can print nicely, 
+  // though we mostly rely on print media queries in the InvoiceView.
+  if (activeInvoice) {
+    return <div className="h-screen overflow-auto bg-slate-900 text-slate-200">{renderContent()}</div>;
+  }
+
+  return (
+    <div className="flex h-screen bg-slate-900 text-slate-200 font-sans print:hidden">
+      {/* Sidebar */}
+      <aside className="w-64 bg-slate-950 border-r border-slate-800 flex-col hidden md:flex">
+        <div className="p-6 border-b border-slate-800">
+          <h1 className="text-2xl font-black tracking-wider text-slate-100">
+            TALLER<span className="text-orange-500">PRO</span>
+          </h1>
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-2">
+          <NavItem icon={<IconDashboard />} label="Panel" active={activeTab === 'panel' && !selectedOrderId} onClick={() => { setActiveTab('panel'); setSelectedOrderId(null); }} />
+          <NavItem icon={<IconClipboard />} label="Órdenes" active={activeTab === 'ordenes' && !selectedOrderId} onClick={() => { setActiveTab('ordenes'); setSelectedOrderId(null); }} />
+          <NavItem icon={<IconUsers />} label="Clientes" active={activeTab === 'clientes' && !selectedOrderId} onClick={() => { setActiveTab('clientes'); setSelectedOrderId(null); }} />
+          <NavItem icon={<IconWrench />} label="Trabajadores" active={activeTab === 'trabajadores' && !selectedOrderId} onClick={() => { setActiveTab('trabajadores'); setSelectedOrderId(null); }} />
+          <NavItem icon={<IconChart />} label="Informes" active={activeTab === 'informes' && !selectedOrderId} onClick={() => { setActiveTab('informes'); setSelectedOrderId(null); }} />
+        </nav>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-auto flex flex-col bg-slate-900">
+        {/* Mobile Header */}
+        <header className="md:hidden bg-slate-950 border-b border-slate-800 p-4 flex justify-between items-center">
+          <h1 className="text-xl font-black text-slate-100">TALLER<span className="text-orange-500">PRO</span></h1>
+          <select className="bg-slate-800 text-slate-200 p-2 rounded border border-slate-700" value={activeTab} onChange={(e) => { setActiveTab(e.target.value); setSelectedOrderId(null); }}>
+            <option value="panel">Panel</option>
+            <option value="ordenes">Órdenes</option>
+            <option value="clientes">Clientes</option>
+            <option value="trabajadores">Trabajadores</option>
+            <option value="informes">Informes</option>
+          </select>
+        </header>
+        
+        <div className="p-6 md:p-10 flex-1 max-w-7xl mx-auto w-full">
+          {renderContent()}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+// --- COMPONENTS ---
+
+const NavItem = ({ icon, label, active, onClick }) => (
+  <button
+    onClick={onClick}
+    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${active ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-transparent'}`}
+  >
+    {icon}
+    <span className="font-semibold">{label}</span>
+  </button>
+);
+
+const Card = ({ title, value, subtitle, highlight }) => (
+  <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+    <h3 className="text-slate-400 text-sm font-bold uppercase tracking-wider">{title}</h3>
+    <p className={`text-3xl font-black mt-2 ${highlight ? 'text-orange-500' : 'text-slate-100'}`}>{value}</p>
+    {subtitle && <p className="text-sm text-slate-500 mt-1">{subtitle}</p>}
+  </div>
+);
+
+const Dashboard = ({ orders, getFullOrderInfo, onSelectOrder }) => {
+  const fullOrders = orders.map(getFullOrderInfo);
+  const openOrdersCount = fullOrders.filter(o => o.status === 'Abierta' || o.status === 'En curso').length;
+  const completedThisMonth = fullOrders.filter(o => o.status === 'Terminada' || o.status === 'Entregada'); 
+  
+  const totalIncome = completedThisMonth.reduce((sum, o) => sum + o.charged_price, 0);
+  const totalCost = completedThisMonth.reduce((sum, o) => sum + o.cost, 0);
+  const totalProfit = totalIncome - totalCost;
+
+  return (
+    <div className="space-y-8 animate-in fade-in">
+      <h2 className="text-3xl font-black text-slate-100 tracking-tight">Panel de Control</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card title="Reparaciones Abiertas" value={openOrdersCount} />
+        <Card title="Ingresos (Mes)" value={`${totalIncome.toFixed(2)}€`} />
+        <Card title="Costes (Mes)" value={`${totalCost.toFixed(2)}€`} />
+        <Card title="Beneficio" value={`${totalProfit.toFixed(2)}€`} highlight />
+      </div>
+
+      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+        <div className="p-6 border-b border-slate-700 flex justify-between items-center">
+          <h3 className="text-lg font-bold text-slate-100">Órdenes en curso</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-900/50 text-slate-400 text-sm border-b border-slate-700">
+                <th className="p-4 font-semibold uppercase">Matrícula</th>
+                <th className="p-4 font-semibold uppercase">Vehículo</th>
+                <th className="p-4 font-semibold uppercase">Estado</th>
+                <th className="p-4 font-semibold uppercase text-right">Acción</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-700/50">
+              {fullOrders.filter(o => o.status === 'Abierta' || o.status === 'En curso').map(order => (
+                <tr key={order.id} className="hover:bg-slate-700/30 transition-colors">
+                  <td className="p-4 font-mono font-bold text-orange-400">{order.vehicle?.license_plate}</td>
+                  <td className="p-4 text-slate-300">{order.vehicle?.brand} {order.vehicle?.model}</td>
+                  <td className="p-4">
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${order.status === 'Abierta' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'}`}>
+                      {order.status}
+                    </span>
+                  </td>
+                  <td className="p-4 text-right">
+                    <button onClick={() => onSelectOrder(order.id)} className="text-slate-400 hover:text-orange-500 font-semibold text-sm transition-colors">Ver detalle →</button>
+                  </td>
+                </tr>
+              ))}
+              {openOrdersCount === 0 && <tr><td colSpan="4" className="p-8 text-center text-slate-500 font-medium">No hay órdenes abiertas en este momento.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const OrdersView = ({ orders, getFullOrderInfo, onSelectOrder, vehicles, clients, setOrders }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const fullOrders = orders.map(getFullOrderInfo);
+
+  const filteredOrders = fullOrders.filter(o => {
+    const term = searchTerm.toLowerCase();
+    return o.vehicle?.license_plate.toLowerCase().includes(term) || o.client?.name.toLowerCase().includes(term);
+  });
+
+  const handleNewOrder = () => {
+    const newId = orders.length > 0 ? Math.max(...orders.map(o => o.id)) + 1 : 1;
+    const newOrder = { id: newId, vehicle_id: vehicles[0].id, status: 'Abierta', open_date: new Date().toISOString().split('T')[0], delivery_date: null, charged_price: 0 };
+    setOrders([...orders, newOrder]);
+    onSelectOrder(newId);
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <h2 className="text-3xl font-black text-slate-100 tracking-tight">Órdenes de Reparación</h2>
+        <button onClick={handleNewOrder} className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-orange-500/20 transition-all active:scale-95">
+          + Nueva Orden
+        </button>
+      </div>
+
+      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+        <div className="p-4 border-b border-slate-700 bg-slate-800/50">
+          <input 
+            type="text" 
+            placeholder="Buscar por matrícula o cliente..." 
+            className="w-full md:w-1/2 px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-900/50 text-slate-400 text-sm border-b border-slate-700">
+                <th className="p-4 font-semibold uppercase">ID</th>
+                <th className="p-4 font-semibold uppercase">Matrícula</th>
+                <th className="p-4 font-semibold uppercase">Cliente</th>
+                <th className="p-4 font-semibold uppercase">Estado</th>
+                <th className="p-4 font-semibold uppercase text-right">Acción</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-700/50">
+              {filteredOrders.map(order => (
+                <tr key={order.id} className="hover:bg-slate-700/30 transition-colors">
+                  <td className="p-4 text-slate-500 font-mono">#{order.id}</td>
+                  <td className="p-4 font-mono font-bold text-orange-400">{order.vehicle?.license_plate}</td>
+                  <td className="p-4 text-slate-300">{order.client?.name}</td>
+                  <td className="p-4">
+                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-700 text-slate-300 border border-slate-600">
+                      {order.status}
+                    </span>
+                  </td>
+                  <td className="p-4 text-right">
+                    <button onClick={() => onSelectOrder(order.id)} className="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-1.5 rounded-lg font-medium text-sm transition-colors border border-slate-600">
+                      Gestionar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const OrderDetail = ({ orderId, onBack, orders, setOrders, vehicles, clients, tasks, setTasks, parts, setParts, workers, invoices, openInvoice, calculateOrderCost }) => {
+  const order = orders.find(o => o.id === orderId);
+  const vehicle = vehicles.find(v => v.id === order.vehicle_id);
+  const client = clients.find(c => c.id === vehicle.client_id);
+  
+  const orderTasks = tasks.filter(t => t.order_id === orderId);
+  const orderParts = parts.filter(p => p.order_id === orderId);
+  
+  const cost = calculateOrderCost(orderId);
+  const [localPrice, setLocalPrice] = useState(order.charged_price);
+  
+  // Calculate Profit visually based on local input before saving
+  const profit = localPrice - cost;
+
+  const handleStatusChange = (newStatus) => {
+    setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+  };
+
+  const handleSaveAndInvoice = () => {
+    // 1. Update order price
+    setOrders(orders.map(o => o.id === orderId ? { ...o, charged_price: localPrice } : o));
+
+    // 2. Billing Logic
+    let existingInv = invoices.find(i => i.order_id === orderId);
+    
+    if (existingInv) {
+      // Abre la factura existente (NO se actualizan líneas solas según requisitos)
+      openInvoice(existingInv);
+    } else {
+      // Crear nueva factura. "Precio cobrado" es IVA incluido. Base = precio / 1.21
+      const base = localPrice / 1.21;
+      
+      const nextNum = `F2026-${String(invoices.length + 1).padStart(4, '0')}`;
+      
+      const newInvoice = {
+        id: Date.now(),
+        order_id: orderId,
+        number: nextNum,
+        date: new Date().toISOString().split('T')[0],
+        client_name: client?.name || 'Cliente de Contado',
+        client_nif: client?.nif || '',
+        client_address: client?.address || '',
+        vehicle_info: `${vehicle?.license_plate} - ${vehicle?.brand} ${vehicle?.model}`,
+        lines: [
+          { description: `Trabajos de reparación según orden #${orderId}`, quantity: 1, unit_price: base }
+        ],
+        vat_rate: 21,
+        notes: 'Gracias por confiar en TallerPro.'
+      };
+      
+      openInvoice(newInvoice);
+    }
+  };
+
+  const addTask = () => {
+    const newId = Date.now();
+    setTasks([...tasks, { id: newId, order_id: orderId, description: 'Nueva Tarea', worker_id: workers[0].id, hours: 1 }]);
+  };
+
+  const addPart = () => {
+    const newId = Date.now();
+    setParts([...parts, { id: newId, order_id: orderId, description: 'Nueva Pieza', quantity: 1, unit_cost: 10 }]);
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in pb-12">
+      <button onClick={onBack} className="flex items-center text-slate-400 hover:text-orange-500 transition-colors font-semibold">
+        <IconArrowLeft /> <span className="ml-2">Volver a Órdenes</span>
+      </button>
+
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+        <div>
+          <h2 className="text-3xl font-black text-slate-100 tracking-tight">Orden #{order.id}</h2>
+          <p className="text-slate-400 mt-1">
+            {vehicle?.brand} {vehicle?.model} • <span className="font-mono font-bold text-orange-400">{vehicle?.license_plate}</span> • {client?.name}
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <select 
+            value={order.status} 
+            onChange={(e) => handleStatusChange(e.target.value)}
+            className="bg-slate-800 border border-slate-700 text-slate-200 px-4 py-2.5 rounded-lg font-bold focus:outline-none focus:border-orange-500"
+          >
+            <option value="Abierta">Abierta</option>
+            <option value="En curso">En curso</option>
+            <option value="Terminada">Terminada</option>
+            <option value="Entregada">Entregada</option>
+          </select>
+          {order.status !== 'Entregada' && (
+             <button onClick={() => handleStatusChange('Entregada')} className="bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 px-4 py-2.5 rounded-lg font-bold transition-colors">
+               Marcar Entregada
+             </button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          
+          {/* Tareas */}
+          <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
+            <div className="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
+              <h3 className="text-xl font-bold text-slate-100">Mano de Obra</h3>
+              <button onClick={addTask} className="text-sm font-bold text-orange-500 hover:text-orange-400 bg-orange-500/10 px-3 py-1.5 rounded-md border border-orange-500/20">+ Añadir Tarea</button>
+            </div>
+            <div className="space-y-3">
+              {orderTasks.map(task => (
+                <div key={task.id} className="flex flex-wrap md:flex-nowrap gap-3 items-center bg-slate-900/50 p-3 rounded-lg border border-slate-700">
+                  <input 
+                    type="text" 
+                    value={task.description} 
+                    onChange={e => setTasks(tasks.map(t => t.id === task.id ? {...t, description: e.target.value} : t))}
+                    className="flex-1 bg-transparent border-none text-slate-200 focus:ring-1 focus:ring-orange-500 rounded p-1 min-w-[150px]" 
+                  />
+                  <select 
+                    value={task.worker_id}
+                    onChange={e => setTasks(tasks.map(t => t.id === task.id ? {...t, worker_id: parseInt(e.target.value)} : t))}
+                    className="bg-slate-800 border border-slate-700 text-slate-300 rounded p-1.5 focus:border-orange-500 outline-none w-32"
+                  >
+                    {workers.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  </select>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="number" 
+                      value={task.hours} 
+                      onChange={e => setTasks(tasks.map(t => t.id === task.id ? {...t, hours: parseFloat(e.target.value) || 0} : t))}
+                      className="w-20 bg-slate-800 border border-slate-700 rounded p-1.5 text-right text-slate-200 focus:border-orange-500 outline-none" 
+                    />
+                    <span className="text-sm text-slate-500 font-medium">hrs</span>
+                  </div>
+                  <button onClick={() => setTasks(tasks.filter(t => t.id !== task.id))} className="text-red-500 hover:text-red-400 p-2">✕</button>
+                </div>
+              ))}
+              {orderTasks.length === 0 && <p className="text-slate-500 text-sm italic">No hay tareas imputadas.</p>}
+            </div>
+          </div>
+
+          {/* Piezas */}
+          <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
+            <div className="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
+              <h3 className="text-xl font-bold text-slate-100">Recambios / Piezas</h3>
+              <button onClick={addPart} className="text-sm font-bold text-orange-500 hover:text-orange-400 bg-orange-500/10 px-3 py-1.5 rounded-md border border-orange-500/20">+ Añadir Pieza</button>
+            </div>
+            <div className="space-y-3">
+              {orderParts.map(part => (
+                <div key={part.id} className="flex flex-wrap md:flex-nowrap gap-3 items-center bg-slate-900/50 p-3 rounded-lg border border-slate-700">
+                  <input 
+                    type="text" 
+                    value={part.description} 
+                    onChange={e => setParts(parts.map(p => p.id === part.id ? {...p, description: e.target.value} : p))}
+                    className="flex-1 bg-transparent border-none text-slate-200 focus:ring-1 focus:ring-orange-500 rounded p-1 min-w-[150px]" 
+                  />
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="number" 
+                      value={part.quantity} 
+                      onChange={e => setParts(parts.map(p => p.id === part.id ? {...p, quantity: parseInt(e.target.value) || 0} : p))}
+                      className="w-16 bg-slate-800 border border-slate-700 rounded p-1.5 text-center text-slate-200 focus:border-orange-500 outline-none" 
+                    />
+                    <span className="text-sm text-slate-500">x</span>
+                    <input 
+                      type="number" 
+                      value={part.unit_cost} 
+                      onChange={e => setParts(parts.map(p => p.id === part.id ? {...p, unit_cost: parseFloat(e.target.value) || 0} : p))}
+                      className="w-24 bg-slate-800 border border-slate-700 rounded p-1.5 text-right text-slate-200 focus:border-orange-500 outline-none" 
+                    />
+                    <span className="text-sm text-slate-500 font-medium">€</span>
+                  </div>
+                  <button onClick={() => setParts(parts.filter(p => p.id !== part.id))} className="text-red-500 hover:text-red-400 p-2">✕</button>
+                </div>
+              ))}
+              {orderParts.length === 0 && <p className="text-slate-500 text-sm italic">No hay piezas añadidas.</p>}
+            </div>
+          </div>
+        </div>
+
+        {/* Cierre y Rentabilidad */}
+        <div className="space-y-6">
+          <div className="bg-slate-950 p-6 rounded-xl border border-slate-800 shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full blur-3xl"></div>
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-800 pb-3">Rentabilidad</h3>
+            <div className="space-y-4 mb-6 relative z-10">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500 font-medium">Coste Total Operación</span>
+                <span className="font-mono font-bold text-slate-300">{cost.toFixed(2)} €</span>
+              </div>
+            </div>
+            <div className={`p-4 rounded-lg flex justify-between items-center border ${profit >= 0 ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+              <span className="font-bold text-sm uppercase tracking-wider">Beneficio Est.</span>
+              <span className="text-2xl font-black font-mono">{profit.toFixed(2)} €</span>
+            </div>
+          </div>
+
+          <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
+             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Cierre y Facturación</h3>
+             <div className="flex flex-col gap-4">
+               <div>
+                 <label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Precio a Cobrar (IVA Incl.)</label>
+                 <div className="flex items-center relative">
+                   <input 
+                     type="number" 
+                     value={localPrice} 
+                     onChange={e => setLocalPrice(parseFloat(e.target.value) || 0)}
+                     className="w-full text-3xl font-black font-mono text-white bg-slate-900 border border-slate-600 rounded-lg p-4 pr-12 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all"
+                   />
+                   <span className="absolute right-4 text-2xl text-slate-500 font-light">€</span>
+                 </div>
+               </div>
+               
+               <button 
+                 onClick={handleSaveAndInvoice}
+                 className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white p-4 rounded-lg font-bold shadow-lg shadow-orange-500/20 transition-all active:scale-95"
+               >
+                 <IconSave /> 
+                 {invoices.some(i => i.order_id === orderId) ? 'Guardar y Ver Factura' : 'Guardar y Crear Factura'}
+               </button>
+             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- INVOICE COMPONENT (Printable A4) ---
+const InvoiceView = ({ invoice, onClose, onSave }) => {
+  const [inv, setInv] = useState({ ...invoice });
+
+  const handleLineChange = (index, field, value) => {
+    const newLines = [...inv.lines];
+    newLines[index][field] = field === 'description' ? value : parseFloat(value) || 0;
+    setInv({ ...inv, lines: newLines });
+  };
+
+  const addLine = () => {
+    setInv({ ...inv, lines: [...inv.lines, { description: 'Nuevo concepto', quantity: 1, unit_price: 0 }] });
+  };
+
+  const removeLine = (index) => {
+    const newLines = inv.lines.filter((_, i) => i !== index);
+    setInv({ ...inv, lines: newLines });
+  };
+
+  // Calculations on the fly
+  const subtotal = inv.lines.reduce((acc, line) => acc + (line.quantity * line.unit_price), 0);
+  const vatAmount = subtotal * (inv.vat_rate / 100);
+  const total = subtotal + vatAmount;
+
+  return (
+    <div className="min-h-screen bg-slate-900 py-8 px-4 print:p-0 print:bg-white animate-in fade-in">
+      
+      {/* Action Bar (Hidden on print) */}
+      <div className="max-w-4xl mx-auto mb-6 flex flex-col sm:flex-row justify-between items-center print:hidden bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-xl gap-4">
+        <button onClick={onClose} className="flex items-center text-slate-400 hover:text-white font-semibold transition-colors">
+          <IconArrowLeft /> <span className="ml-2">Volver</span>
+        </button>
+        <div className="flex gap-3 w-full sm:w-auto">
+          <button onClick={() => window.print()} className="flex-1 sm:flex-none bg-slate-700 hover:bg-slate-600 text-white px-4 py-2.5 rounded-lg font-bold transition-colors border border-slate-600 flex items-center justify-center gap-2">
+            <IconPrinter /> Imprimir A4
+          </button>
+          <button onClick={() => onSave(inv)} className="flex-1 sm:flex-none bg-orange-500 hover:bg-orange-600 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-orange-500/20 transition-transform active:scale-95 flex items-center justify-center gap-2">
+            <IconSave /> Guardar Factura
+          </button>
+        </div>
+      </div>
+
+      {/* A4 Sheet */}
+      <div className="max-w-4xl mx-auto bg-white p-12 sm:p-16 rounded-xl shadow-2xl print:shadow-none print:rounded-none print:p-8 text-slate-900 w-full" style={{ minHeight: '297mm' }}>
+        
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start border-b-2 border-slate-900 pb-8 mb-8 gap-8 sm:gap-0">
+          <div>
+            <h1 className="text-4xl font-black text-slate-900 tracking-tighter">TALLER<span className="text-orange-600">PRO</span></h1>
+            <div className="mt-4 text-sm text-slate-600 leading-relaxed font-medium">
+              Calle del Motor 42, Polígono Industrial<br/>
+              28000 Madrid, España<br/>
+              NIF: B-98765432<br/>
+              info@tallerpro.es | 900 123 456
+            </div>
+          </div>
+          <div className="text-left sm:text-right flex flex-col items-start sm:items-end gap-3 w-full sm:w-auto">
+            <h2 className="text-3xl font-black text-slate-300 tracking-widest uppercase">Factura</h2>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <span className="text-sm font-bold text-slate-400 uppercase w-20 sm:w-auto">Nº:</span>
+              <input type="text" value={inv.number} onChange={e => setInv({...inv, number: e.target.value})} className="text-right sm:text-right text-xl font-bold border-b border-transparent hover:border-slate-300 focus:outline-none focus:border-orange-500 print:border-none w-full sm:w-40 text-slate-800" />
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <span className="text-sm font-bold text-slate-400 uppercase w-20 sm:w-auto">Fecha:</span>
+              <input type="date" value={inv.date} onChange={e => setInv({...inv, date: e.target.value})} className="text-right sm:text-right text-slate-600 font-medium border-b border-transparent hover:border-slate-300 focus:outline-none focus:border-orange-500 print:border-none w-full sm:w-40" />
+            </div>
+          </div>
+        </div>
+
+        {/* Customer & Vehicle Info */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+          <div className="bg-slate-50 p-6 rounded-lg print:p-0 print:bg-transparent border border-slate-100 print:border-none">
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Facturar a</h3>
+            <div className="flex flex-col gap-3">
+              <input type="text" placeholder="Nombre/Empresa" value={inv.client_name} onChange={e => setInv({...inv, client_name: e.target.value})} className="font-bold text-lg bg-transparent border-b border-transparent hover:border-slate-300 focus:outline-none focus:border-orange-500 print:border-none w-full placeholder-slate-300" />
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-slate-400">NIF:</span>
+                <input type="text" placeholder="NIF/CIF" value={inv.client_nif} onChange={e => setInv({...inv, client_nif: e.target.value})} className="text-slate-700 bg-transparent border-b border-transparent hover:border-slate-300 focus:outline-none focus:border-orange-500 print:border-none w-full placeholder-slate-300 font-mono" />
+              </div>
+              <input type="text" placeholder="Dirección completa" value={inv.client_address} onChange={e => setInv({...inv, client_address: e.target.value})} className="text-slate-700 bg-transparent border-b border-transparent hover:border-slate-300 focus:outline-none focus:border-orange-500 print:border-none w-full placeholder-slate-300 text-sm" />
+            </div>
+          </div>
+          
+          <div className="bg-slate-50 p-6 rounded-lg print:p-0 print:bg-transparent border border-slate-100 print:border-none flex flex-col justify-center">
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Datos del Vehículo</h3>
+            <input type="text" placeholder="Vehículo y Matrícula" value={inv.vehicle_info} onChange={e => setInv({...inv, vehicle_info: e.target.value})} className="font-bold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:outline-none focus:border-orange-500 print:border-none w-full placeholder-slate-300 font-mono" />
+          </div>
+        </div>
+
+        {/* Lines */}
+        <div className="mb-12">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-900 text-white print:bg-slate-100 print:text-slate-900 print:border-b-2 print:border-slate-900">
+                <th className="p-3 font-bold uppercase text-xs tracking-wider rounded-tl-lg print:rounded-none">Descripción</th>
+                <th className="p-3 font-bold uppercase text-xs tracking-wider text-center w-24">Cant.</th>
+                <th className="p-3 font-bold uppercase text-xs tracking-wider text-right w-32">Precio Ud.</th>
+                <th className="p-3 font-bold uppercase text-xs tracking-wider text-right w-32 rounded-tr-lg print:rounded-none">Total</th>
+                <th className="w-10 print:hidden"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {inv.lines.map((line, idx) => (
+                <tr key={idx} className="border-b border-slate-100 print:border-slate-300 hover:bg-slate-50 print:hover:bg-transparent transition-colors group">
+                  <td className="p-3">
+                    <input type="text" value={line.description} onChange={e => handleLineChange(idx, 'description', e.target.value)} className="w-full bg-transparent border-none focus:ring-0 p-0 text-slate-800 font-medium" placeholder="Descripción del concepto..." />
+                  </td>
+                  <td className="p-3">
+                    <input type="number" value={line.quantity} onChange={e => handleLineChange(idx, 'quantity', e.target.value)} className="w-full bg-transparent border-none text-center focus:ring-0 p-0 text-slate-800 font-mono" />
+                  </td>
+                  <td className="p-3 flex justify-end items-center gap-1">
+                    <input type="number" value={line.unit_price} onChange={e => handleLineChange(idx, 'unit_price', e.target.value)} className="w-full bg-transparent border-none text-right focus:ring-0 p-0 text-slate-800 font-mono" /> €
+                  </td>
+                  <td className="p-3 text-right font-mono font-bold text-slate-800">
+                    {(line.quantity * line.unit_price).toFixed(2)} €
+                  </td>
+                  <td className="p-3 text-center print:hidden">
+                    <button onClick={() => removeLine(idx)} className="text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <button onClick={addLine} className="mt-4 text-sm font-bold text-orange-600 hover:text-orange-700 print:hidden flex items-center gap-1">
+            + Añadir línea
+          </button>
+        </div>
+
+        {/* Totals */}
+        <div className="flex justify-end mb-16">
+          <div className="w-full sm:w-80 space-y-4 bg-slate-50 p-6 rounded-lg print:bg-transparent print:p-0">
+            <div className="flex justify-between text-slate-600 font-medium">
+              <span>Base Imponible</span>
+              <span className="font-mono">{subtotal.toFixed(2)} €</span>
+            </div>
+            <div className="flex justify-between items-center text-slate-600 font-medium border-b border-slate-200 pb-4">
+              <div className="flex items-center gap-2">
+                <span>IVA</span>
+                <input type="number" value={inv.vat_rate} onChange={e => setInv({...inv, vat_rate: parseFloat(e.target.value)||0})} className="w-12 text-right bg-transparent border-b border-dashed border-slate-300 focus:outline-none focus:border-orange-500 print:border-none p-0 font-mono" /> %
+              </div>
+              <span className="font-mono">{vatAmount.toFixed(2)} €</span>
+            </div>
+            <div className="flex justify-between items-center pt-2">
+              <span className="text-xl font-black text-slate-900 uppercase">Total</span>
+              <span className="text-2xl font-black text-orange-600 font-mono">{total.toFixed(2)} €</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Notes / Footer */}
+        <div className="mt-auto pt-8 border-t-2 border-slate-100 print:border-slate-900">
+          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Notas / Condiciones</h4>
+          <textarea 
+            value={inv.notes} 
+            onChange={e => setInv({...inv, notes: e.target.value})}
+            className="w-full bg-transparent border border-transparent hover:border-slate-200 focus:border-orange-500 focus:ring-0 p-2 text-sm text-slate-600 print:border-none print:p-0 resize-none h-20"
+            placeholder="Añadir notas o condiciones de pago..."
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- CLIENTS & WORKERS VIEWS (Simplified for Demo) ---
+const ClientsView = ({ clients, vehicles }) => (
+  <div className="space-y-6 animate-in fade-in">
+    <div className="flex justify-between items-center">
+      <h2 className="text-3xl font-black text-slate-100 tracking-tight">Clientes</h2>
+      <button className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-2.5 rounded-lg font-bold border border-slate-600 transition-colors">Nuevo Cliente</button>
+    </div>
+    <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+      <table className="w-full text-left border-collapse">
+        <thead>
+          <tr className="bg-slate-900/50 text-slate-400 text-sm border-b border-slate-700">
+            <th className="p-4 font-semibold uppercase">Nombre / NIF</th>
+            <th className="p-4 font-semibold uppercase">Contacto</th>
+            <th className="p-4 font-semibold uppercase">Vehículos</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-700/50">
+          {clients.map(client => {
+            const clientVehicles = vehicles.filter(v => v.client_id === client.id);
+            return (
+              <tr key={client.id} className="hover:bg-slate-700/30 transition-colors">
+                <td className="p-4">
+                  <div className="font-bold text-slate-200">{client.name}</div>
+                  <div className="text-xs text-slate-500 font-mono mt-1">{client.nif}</div>
+                </td>
+                <td className="p-4 text-slate-400 text-sm">
+                  <div>{client.phone}</div>
+                  <div>{client.email}</div>
+                </td>
+                <td className="p-4">
+                  <div className="flex flex-wrap gap-2">
+                    {clientVehicles.map(v => (
+                      <span key={v.id} className="inline-block bg-slate-900 text-orange-400 text-xs px-2.5 py-1 rounded-md font-mono border border-slate-700">
+                        {v.license_plate}
+                      </span>
+                    ))}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
+const WorkersView = ({ workers, tasks }) => (
+  <div className="space-y-6 animate-in fade-in">
+    <div className="flex justify-between items-center">
+      <h2 className="text-3xl font-black text-slate-100 tracking-tight">Trabajadores</h2>
+      <button className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-2.5 rounded-lg font-bold border border-slate-600 transition-colors">Nuevo Trabajador</button>
+    </div>
+    <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+      <table className="w-full text-left border-collapse">
+        <thead>
+          <tr className="bg-slate-900/50 text-slate-400 text-sm border-b border-slate-700">
+            <th className="p-4 font-semibold uppercase">Nombre</th>
+            <th className="p-4 font-semibold uppercase text-right">Coste / Hora</th>
+            <th className="p-4 font-semibold uppercase text-right">Horas Imputadas (Mes)</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-700/50">
+          {workers.map(worker => {
+            const workerTasks = tasks.filter(t => t.worker_id === worker.id);
+            const totalHours = workerTasks.reduce((sum, t) => sum + t.hours, 0);
+            return (
+              <tr key={worker.id} className="hover:bg-slate-700/30 transition-colors">
+                <td className="p-4 font-bold text-slate-200">{worker.name}</td>
+                <td className="p-4 text-right text-slate-400 font-mono">{worker.cost_hour.toFixed(2)} €</td>
+                <td className="p-4 text-right font-bold text-orange-400 font-mono">{totalHours} hrs</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
+const ReportsView = ({ orders, getFullOrderInfo }) => {
+  const fullOrders = orders.map(getFullOrderInfo).filter(o => o.status === 'Entregada' || o.status === 'Terminada');
+  const sortedOrders = [...fullOrders].sort((a, b) => b.profit - a.profit);
+  
+  return (
+    <div className="space-y-6 animate-in fade-in">
+      <h2 className="text-3xl font-black text-slate-100 tracking-tight">Informes y Rentabilidad</h2>
+      <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
+        <h3 className="text-lg font-bold text-slate-200 mb-6">Ranking de Órdenes (Más rentables)</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-900/50 text-slate-400 text-sm border-b border-slate-700">
+                <th className="p-4 font-semibold uppercase">ID</th>
+                <th className="p-4 font-semibold uppercase">Vehículo</th>
+                <th className="p-4 font-semibold uppercase text-right">Facturado</th>
+                <th className="p-4 font-semibold uppercase text-right">Coste</th>
+                <th className="p-4 font-semibold uppercase text-right">Beneficio</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-700/50">
+              {sortedOrders.map(order => (
+                <tr key={order.id} className="hover:bg-slate-700/30 transition-colors">
+                  <td className="p-4 text-slate-500 font-mono">#{order.id}</td>
+                  <td className="p-4 font-bold font-mono text-orange-400">{order.vehicle?.license_plate}</td>
+                  <td className="p-4 text-right font-mono text-slate-300">{order.charged_price.toFixed(2)} €</td>
+                  <td className="p-4 text-right font-mono text-slate-500">{order.cost.toFixed(2)} €</td>
+                  <td className={`p-4 text-right font-black font-mono ${order.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {order.profit.toFixed(2)} €
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
